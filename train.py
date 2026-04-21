@@ -148,3 +148,92 @@ print(f"Input shape:  {xb.shape}")   # should be [4, 8]
 print(f"Target shape: {yb.shape}")   # should be [4, 8]
 print(f"\nFirst input sequence:  {xb[0].tolist()}")
 print(f"First target sequence: {yb[0].tolist()}")
+
+import torch.nn as nn
+from torch.nn import functional as F
+
+class BigramLanguageModel(nn.Module):
+
+    def __init__(self, vocab_size):
+        super().__init__()
+        # TODO: create an embedding table of shape (vocab_size, vocab_size)
+        # Each token looks up a row of logits predicting the next token
+        # Hint: nn.Embedding(vocab_size, vocab_size)
+        self.token_embedding_table = nn.Embedding(vocab_size,vocab_size)
+
+    def forward(self, idx, targets=None):
+        # idx is shape (batch_size, block_size) — the input tokens
+        # TODO: pass idx through the embedding table to get logits
+        # Result shape: (batch_size, block_size, vocab_size)
+        logits =  self.token_embedding_table(idx)
+
+        if targets is None:
+            loss = None
+        else:
+            # PyTorch's cross_entropy expects shape (N, C) not (B, T, C)
+            # so we need to reshape
+            B, T, C = logits.shape
+            logits = logits.view(B*T, C)
+            targets = targets.view(B*T)
+            loss = F.cross_entropy(logits, targets)
+
+        return logits, loss
+
+    def generate(self, idx, max_new_tokens):
+        # idx is (B, T) — current context
+        for _ in range(max_new_tokens):
+            # TODO: get logits from forward pass (ignore loss)
+            logits, loss = self(idx)
+
+            # only look at the last time step
+            logits = logits[:, -1, :]  # (B, C)
+
+            # TODO: convert logits to probabilities
+            # Hint: F.softmax(logits, dim=-1)
+            probs = F.softmax(logits, dim=-1)
+
+            # TODO: sample one token from the probability distribution
+            # Hint: torch.multinomial(probs, num_samples=1)
+            idx_next = torch.multinomial(probs,num_samples=1)
+
+            # TODO: append the new token to the running sequence
+            # Hint: torch.cat((idx, idx_next), dim=1)
+            idx = torch.cat((idx, idx_next), dim=-1)
+
+        return idx
+
+# Create the model
+model = BigramLanguageModel(vocab_size)
+
+# Test generation BEFORE training (should be total garbage)
+start = torch.zeros((1, 1), dtype=torch.long)  # start with token 0
+print("Before training:")
+print(decode(model.generate(start, max_new_tokens=100)[0].tolist()))
+
+# --------------------------------------------------------------------------
+# Step 4: Training loop
+# --------------------------------------------------------------------------
+optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3)
+
+for step in range(10000):
+
+    # TODO: grab a batch of training data
+    # Hint: use get_batch('train')
+    xb, yb = get_batch('train')
+
+    # TODO: forward pass — get logits and loss
+    logits, loss = model(xb,yb)
+
+    # These three lines are always the same — the core of training
+    optimizer.zero_grad(set_to_none=True)
+    loss.backward()
+    optimizer.step()
+
+    # Print loss every 1000 steps
+    if step % 1000 == 0:
+        print(f"Step {step:5d} | Loss: {loss.item():.4f}")
+
+# Generate text AFTER training
+print("\nAfter training:")
+start = torch.zeros((1, 1), dtype=torch.long)
+print(decode(model.generate(start, max_new_tokens=300)[0].tolist()))
