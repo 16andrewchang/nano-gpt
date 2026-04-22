@@ -1,0 +1,143 @@
+# nanoGPT — Decoder-Only Transformer from Scratch
+
+A character-level language model built entirely from scratch in PyTorch. Trained on Shakespeare's plays (~1MB), it generates new text that mimics Shakespeare's style, vocabulary, and formatting — without copying any original text.
+
+This project implements the core architecture behind models like GPT: token and positional embeddings, multi-head causal self-attention, feedforward layers, residual connections, layer normalization, and dropout — all in a single, readable training script.
+
+## Sample Output
+
+```
+GLOUCESTER:
+I would be us:
+Slew me to thrice join'd a
+vesses rise. She must lord.
+
+DUCHESS OF YORK:
+If we thank you now of the guest.
+
+KING EDWARD IV:
+O, which let me me thou?
+What I was a guestitulE?
+
+STANLEYCUS:
+With life.
+
+POMPEY:
+Ay, from man, and give men.
+```
+
+
+## Architecture
+
+The model follows the standard decoder-only transformer design:
+
+```
+Input tokens
+    ↓
+Token Embedding + Position Embedding
+    ↓
+┌─────────────────────────────┐
+│  Transformer Block (×6)     │
+│  ┌────────────────────────┐ │
+│  │ LayerNorm              │ │
+│  │ Multi-Head Attention   │ │
+│  │ (6 heads, causal mask) │ │
+│  │ + Residual Connection  │ │
+│  ├────────────────────────┤ │
+│  │ LayerNorm              │ │
+│  │ FeedForward (4× expand)│ │
+│  │ + Residual Connection  │ │
+│  └────────────────────────┘ │
+└─────────────────────────────┘
+    ↓
+LayerNorm → Linear → Softmax → Next Token Prediction
+```
+
+## Hyperparameters
+
+| Parameter | Value |
+|-----------|-------|
+| Embedding dimension (`n_embd`) | 192 |
+| Attention heads (`n_head`) | 6 |
+| Transformer blocks (`n_layer`) | 6 |
+| Context length (`block_size`) | 64 |
+| Batch size | 32 |
+| Learning rate | 3e-4 |
+| Dropout | 0.2 |
+| Optimizer | AdamW |
+
+## Training
+
+Training on Tiny Shakespeare (~1.1M characters, 65-character vocabulary):
+
+```
+Step  9500 | Train loss: 1.3562 | Val loss: 1.5520
+Step 10000 | Train loss: 1.3439 | Val loss: 1.5493
+Step 10500 | Train loss: 1.3367 | Val loss: 1.5487
+Step 11000 | Train loss: 1.3282 | Val loss: 1.5374
+Step 11500 | Train loss: 1.3246 | Val loss: 1.5405
+Step 12000 | Train loss: 1.3156 | Val loss: 1.5417
+Step 12500 | Train loss: 1.3071 | Val loss: 1.5341
+Step 13000 | Train loss: 1.3112 | Val loss: 1.5275
+Step 13500 | Train loss: 1.2994 | Val loss: 1.5120
+Step 14000 | Train loss: 1.2963 | Val loss: 1.5259
+Step 14500 | Train loss: 1.2895 | Val loss: 1.5207
+...
+```
+
+
+
+## Getting Started
+
+### Requirements
+
+- Python 3.10+
+- PyTorch (CUDA recommended)
+
+### Install
+
+```bash
+git clone https://github.com/YOUR_USERNAME/nano-gpt.git
+cd nano-gpt
+pip install torch
+```
+
+### Download the dataset
+
+```bash
+curl -O https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt
+```
+
+### Train
+
+```bash
+python train.py
+```
+
+Training takes ~5 minutes on an NVIDIA RTX 3060 Ti. Generated text is saved to `output.txt`.
+
+## Key Concepts Implemented
+
+- **Character-level tokenization** — each unique character maps to an integer, forming a vocabulary of 65 tokens
+- **Token + positional embeddings** — learned representations for both token identity and sequence position, summed to encode "what" and "where"
+- **Scaled dot-product attention** — queries and keys produce attention weights that determine how tokens share information, scaled by √(head_size) for training stability
+- **Causal masking** — a lower-triangular mask prevents tokens from attending to future positions during training
+- **Multi-head attention** — multiple attention heads run in parallel, each learning different patterns (e.g., tracking speaker, punctuation, word proximity), then combined via linear projection
+- **Feedforward network** — a two-layer MLP (expand 4×, ReLU, compress) applied independently to each token after attention
+- **Residual connections** — input is added to each sub-layer's output (`x = x + sublayer(x)`), enabling gradient flow through deep networks
+- **Layer normalization** — normalizes activations to zero mean and unit variance before each sub-layer (pre-norm variant)
+- **Dropout** — randomly zeroes activations during training to prevent overfitting
+
+## What I Learned
+
+- How self-attention enables tokens to dynamically select and aggregate context from earlier positions
+- Why multi-head attention outperforms a single large head — independent projections discover diverse, complementary patterns
+- The role of residual connections in enabling gradient flow through deep transformer stacks
+- How layer normalization stabilizes training by keeping activations in a consistent range between blocks
+- The relationship between model capacity, dataset size, and overfitting — tracked via train/val loss divergence
+- End-to-end PyTorch workflow: custom `nn.Module` classes, training loops, gradient computation, and GPU acceleration
+
+## Acknowledgments
+
+Inspired by Andrej Karpathy's [nanoGPT](https://github.com/karpathy/nanoGPT) and his ["Let's build GPT from scratch"](https://www.youtube.com/watch?v=kCc8FmEb1nY) walkthrough.
+
